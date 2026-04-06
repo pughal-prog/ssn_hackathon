@@ -1,0 +1,14 @@
+earthengine-api
+geemap
+streamlit
+folium
+streamlit-folium
+scikit-learn
+pandas
+numpy
+matplotlib
+plotly
+requests
+joblib
+Pillow
+twilio
