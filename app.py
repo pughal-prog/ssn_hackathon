@@ -44,7 +44,9 @@ def score_all_lakes(df):
     results = []
     for _, row in df.iterrows():
         features = {k: row[k] for k in ['lake_area_km2','growth_rate','mean_slope_deg',
-                                         'mean_elevation_m','temp_trend','rainfall_mm']}
+                                         'mean_elevation_m','temp_trend','rainfall_mm',
+                                         'ice_melt_rate','moraine_stability',
+                                         'seismic_activity','glacier_retreat_rate']}
         result = predict(features)
         results.append({**row.to_dict(), **result})
     return pd.DataFrame(results)
@@ -131,7 +133,7 @@ with col_table:
                 'MEDIUM':'background-color:#ffa500;color:white',
                 'LOW':'background-color:#21c354;color:white'}.get(val,'')
 
-    st.dataframe(display.style.applymap(color_risk, subset=['Risk']),
+    st.dataframe(display.style.map(color_risk, subset=['Risk']),
                  use_container_width=True, height=380)
 
 st.divider()
@@ -165,17 +167,25 @@ with col_pred:
     st.subheader("🤖 Predict Risk for a Custom Lake")
     with st.form("predict_form"):
         f1, f2 = st.columns(2)
-        area   = f1.number_input("Lake Area (km²)",      0.1, 1000.0, 1.5)
-        gr     = f2.number_input("Growth Rate (km²/yr)", 0.0, 50.0,   0.1)
-        slope  = f1.number_input("Mean Slope (°)",       0.0, 90.0,  30.0)
-        elev   = f2.number_input("Elevation (m)",        1000, 8000, 4500)
-        temp   = f1.number_input("Temp Trend (°C/dec)",  0.0, 5.0,   1.5)
-        rain   = f2.number_input("Rainfall (mm/yr)",     100, 3000,  1000)
-        submit = st.form_submit_button("🔍 Predict Risk")
+        area    = f1.number_input("Lake Area (km²)",           0.1, 1000.0, 1.5)
+        gr      = f2.number_input("Growth Rate (km²/yr)",      0.0, 50.0,   0.1)
+        slope   = f1.number_input("Mean Slope (°)",            0.0, 90.0,  30.0)
+        elev    = f2.number_input("Elevation (m)",             1000, 8000, 4500)
+        temp    = f1.number_input("Temp Trend (°C/dec)",       0.0, 5.0,   1.5)
+        rain    = f2.number_input("Rainfall (mm/yr)",          100, 3000,  1000)
+        melt    = f1.number_input("Ice Melt Rate (m/yr)",      0.0, 30.0,  5.0)
+        moraine = f2.number_input("Moraine Stability (0-1)",   0.05, 1.0,  0.7)
+        seismic = f1.number_input("Seismic Activity (0-10)",   0.0, 10.0,  2.0)
+        retreat = f2.number_input("Glacier Retreat (m/yr)",    0.0, 150.0, 20.0)
+        submit  = st.form_submit_button("🔍 Predict Risk")
 
     if submit:
-        result = predict({'lake_area_km2':area,'growth_rate':gr,'mean_slope_deg':slope,
-                          'mean_elevation_m':elev,'temp_trend':temp,'rainfall_mm':rain})
+        result = predict({
+            'lake_area_km2': area, 'growth_rate': gr, 'mean_slope_deg': slope,
+            'mean_elevation_m': elev, 'temp_trend': temp, 'rainfall_mm': rain,
+            'ice_melt_rate': melt, 'moraine_stability': moraine,
+            'seismic_activity': seismic, 'glacier_retreat_rate': retreat
+        })
         risk = result['risk']
         icon = {'HIGH':'🔴','MEDIUM':'🟠','LOW':'🟢'}[risk]
         st.markdown(f"### {icon} Risk Level: **{risk}**")
@@ -221,8 +231,9 @@ with col_weather:
 with col_fi:
     st.subheader("🧠 Feature Importance (Explainable AI)")
     model = joblib.load(MODEL_PATH)
-    feat_names = ['Lake Area','Growth Rate','Slope','Elevation','Temp Trend','Rainfall']
-    fi_df = pd.DataFrame({'Feature':feat_names, 'Importance':model.feature_importances_})
+    feat_names = ['Lake Area','Growth Rate','Slope','Elevation','Temp Trend','Rainfall','Ice Melt','Moraine Stability','Seismic Activity','Glacier Retreat']
+    clf = model.named_steps['clf'] if hasattr(model, 'named_steps') else model
+    fi_df = pd.DataFrame({'Feature':feat_names, 'Importance':clf.feature_importances_})
     fi_df = fi_df.sort_values('Importance', ascending=True)
     fig3 = px.bar(fi_df, x='Importance', y='Feature', orientation='h',
                   color='Importance', color_continuous_scale='Reds', height=280)
